@@ -1,0 +1,24 @@
+{
+  "inputs": {
+    "dicom_dir": null,
+    "pet_nifti": "/masks/pet.nii.gz",
+    "template": "template_space.nii.gz",
+    "target_mask": "centiloid_ctx_mask.nii.gz",
+    "ref_mask": "whole_cerebellum_mask.nii.gz",
+    "tracer": "FBP",
+    "mode": "amyloid",
+    "reg_mode": "rigid"
+  },
+  "intermediate": {
+    "converted_pet_nifti": null,
+    "registered_pet_nifti": "pet_in_template.nii.gz",
+    "transform": "pet_to_template.tfm"
+  },
+  "metrics": {
+    "target_mean": 1496.8603710003467,
+    "reference_mean": 722.0131078011963,
+    "suvr_global_cortex_over_ref": 2.073176172048807,
+    "scaled_value": 212.17838827641006,
+    "scaled_units": "Centiloid"
+  }
+}
