@@ -4,12 +4,12 @@ This version accepts **DICOM** input, converts to **NIfTI** inside the container
 
 ## Build
 ```
-docker build -t centiloid:reg .
+docker build -t xnatworks/xnat_centiloud_container .
 ```
 
 ## Run (DICOM input)
 ```
-docker run --rm -v $PWD:/data centiloid:reg   --dicom-dir /data/pet_dicom/   --template /data/template_space.nii.gz   --target-mask /data/centiloid_ctx_mask.nii.gz   --ref-mask /data/whole_cerebellum_mask.nii.gz   --tracer FBP   --mode amyloid   --out-dir /data/out   --reg-mode rigid
+docker run --rm -v $PWD:/data xnatworks/xnat_centiloud_container   --dicom-dir /data/pet_dicom/   --template /data/template_space.nii.gz   --target-mask /data/centiloid_ctx_mask.nii.gz   --ref-mask /data/whole_cerebellum_mask.nii.gz   --tracer FBP   --mode amyloid   --out-dir /data/out   --reg-mode rigid
 ```
 - Outputs:
   - `out/dcm2niix/pet.nii.gz` (converted NIfTI)
@@ -20,7 +20,7 @@ docker run --rm -v $PWD:/data centiloid:reg   --dicom-dir /data/pet_dicom/   --t
 
 ## Run (NIfTI input, skipping DICOM conversion)
 ```
-docker run --rm -v $PWD:/data centiloid:reg   --pet-nifti /data/pet.nii.gz   --template /data/template_space.nii.gz   --target-mask /data/centiloid_ctx_mask.nii.gz   --ref-mask /data/whole_cerebellum_mask.nii.gz   --tracer NAV4694   --mode amyloid   --out-dir /data/out   --reg-mode affine
+docker run --rm -v $PWD:/data xnatworks/xnat_centiloud_container   --pet-nifti /data/pet.nii.gz   --template /data/template_space.nii.gz   --target-mask /data/centiloid_ctx_mask.nii.gz   --ref-mask /data/whole_cerebellum_mask.nii.gz   --tracer NAV4694   --mode amyloid   --out-dir /data/out   --reg-mode affine
 ```
 
 ## Notes
