@@ -498,14 +498,14 @@ def main():
     save_qc_png(pet_img, tmask, rmask, qc_png)
 
     # ---- DICOM Parametric Map output ----
-    pm_dir = os.path.join(args.out_dir, "parametric_map")
-    pm_path = write_suvr_parametric_map(
-        suvr_img_path=pet_reg,
-        template_img_path=args.template,
-        out_dir=pm_dir,
-        dicom_src_dir=args.dicom_dir if args.dicom_dir else None
-    )
-    out_json["outputs"] = {"parametric_map_dicom": os.path.relpath(pm_path, args.out_dir)}
+#    pm_dir = os.path.join(args.out_dir, "parametric_map")
+#    pm_path = write_suvr_parametric_map(
+#        suvr_img_path=pet_reg,
+#        template_img_path=args.template,
+#        out_dir=pm_dir,
+#        dicom_src_dir=args.dicom_dir if args.dicom_dir else None
+#    )
+#    out_json["outputs"] = {"parametric_map_dicom": os.path.relpath(pm_path, args.out_dir)}
 
     print(json.dumps(out_json, indent=2))
 
