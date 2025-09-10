@@ -1,0 +1,43 @@
+{
+	"Modality": "PT",
+	"PatientPosition": "HFS",
+	"StudyDescription": "Anonymized-Austin-Centiloids",
+	"SeriesDescription": "unnamed",
+	"ProtocolName": "unnamed",
+	"ImageType": ["DERIVED", "PRIMARY", "AXIAL"],
+	"RawImage": false,
+	"DeidentificationMethod": ["avid deidentification v001"],
+	"DeidentificationMethodCodeSequence": [ 
+	  { 
+		"CodeValue": "720902",
+		"CodingSchemeDesignator": "XNAT",
+		"CodingSchemeVersion": "0.1",
+		"CodeMeaning": "XNAT Edit Script"
+	  }
+	],
+	"SeriesNumber": 558007,
+	"AcquisitionTime": "16:17:50.000000",
+	"AcquisitionNumber": 1,
+	"Radiopharmaceutical": "Other",
+	"RadionuclidePositronFraction": 0.967,
+	"InjectedRadioactivity": 3.678e+08,
+	"InjectedRadioactivityUnits": "MBq",
+	"RadionuclideHalfLife": 6586.2,
+	"Units": "BQML",
+	"DecayCorrection": "START",
+	"AttenuationCorrectionMethod": "CTAC-SG",
+	"ReconstructionMethod": "LOR-RAMLA",
+	"ReconMethodName": "Line Of Response - Row Action Maximum Likelihood",
+	"TimeZero": "16:17:50",
+	"SliceThickness": 2,
+	"ImageOrientationPatientDICOM": [
+		1,
+		0,
+		0,
+		0,
+		1,
+		0	],
+	"BidsGuess": ["PET","PET"],
+	"ConversionSoftware": "dcm2niix",
+	"ConversionSoftwareVersion": "v1.0.20241211"
+}

@@ -1,7 +1,7 @@
 {
   "inputs": {
-    "dicom_dir": null,
-    "pet_nifti": "/masks/pet.nii.gz",
+    "dicom_dir": "/data/Elder_subject_florbetapir/318614_AV45/scans/558007/DICOM",
+    "pet_nifti": null,
     "template": "template_space.nii.gz",
     "target_mask": "centiloid_ctx_mask.nii.gz",
     "ref_mask": "whole_cerebellum_mask.nii.gz",
@@ -10,15 +10,15 @@
     "reg_mode": "rigid"
   },
   "intermediate": {
-    "converted_pet_nifti": null,
+    "converted_pet_nifti": "/output/dcm2niix/pet.nii.gz",
     "registered_pet_nifti": "pet_in_template.nii.gz",
     "transform": "pet_to_template.tfm"
   },
   "metrics": {
-    "target_mean": 1496.8603710003467,
-    "reference_mean": 722.0131078011963,
-    "suvr_global_cortex_over_ref": 2.073176172048807,
-    "scaled_value": 212.17838827641006,
+    "target_mean": 6660.752110451892,
+    "reference_mean": 5060.199002210051,
+    "suvr_global_cortex_over_ref": 1.3163024038269635,
+    "scaled_value": 63.14994331352912,
     "scaled_units": "Centiloid"
   }
 }
