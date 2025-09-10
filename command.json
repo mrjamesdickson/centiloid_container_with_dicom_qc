@@ -1,0 +1,222 @@
+{
+    "name": "centiloid-pet-quantification",
+    "label": "Centiloid PET Quantification",
+    "description": "Quantify amyloid burden in PET scans using Centiloid methodology. Converts DICOM to NIfTI, registers to template space, and calculates SUVR/Centiloid values with QC outputs.",
+    "version": "1.0.0",
+    "schema-version": "1.0",
+    "image": "xnatworks/xnat_centiloid_container:v1.0.0",
+    "type": "docker",
+    "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE#",
+    "override-entrypoint": true,
+    "mounts": [
+        {
+            "name": "input",
+            "writable": false,
+            "path": "/input"
+        },
+        {
+            "name": "output",
+            "writable": true,
+            "path": "/output"
+        }
+    ],
+    "environment-variables": {},
+    "ports": {},
+    "inputs": [
+        {
+            "name": "template",
+            "description": "Template NIfTI file that defines the coordinate space of the masks (e.g., MNI space)",
+            "type": "File",
+            "required": true,
+            "replacement-key": "#TEMPLATE#",
+            "command-line-flag": "--template"
+        },
+        {
+            "name": "target-mask",
+            "description": "Target (cortical) mask in template space for SUVR calculation",
+            "type": "File",
+            "required": true,
+            "replacement-key": "#TARGET_MASK#",
+            "command-line-flag": "--target-mask"
+        },
+        {
+            "name": "ref-mask", 
+            "description": "Reference (cerebellar) mask in template space for SUVR calculation",
+            "type": "File",
+            "required": true,
+            "replacement-key": "#REF_MASK#",
+            "command-line-flag": "--ref-mask"
+        },
+        {
+            "name": "tracer",
+            "description": "PET tracer used for Centiloid calibration",
+            "type": "string",
+            "required": true,
+            "replacement-key": "#TRACER#",
+            "command-line-flag": "--tracer",
+            "default-value": "FBP",
+            "select-values": ["PiB", "FBP", "FBB", "FMM", "NAV4694"]
+        },
+        {
+            "name": "mode",
+            "description": "Processing mode for tracer type",
+            "type": "string", 
+            "required": true,
+            "replacement-key": "#MODE#",
+            "command-line-flag": "--mode",
+            "default-value": "amyloid",
+            "select-values": ["amyloid", "tau"]
+        },
+        {
+            "name": "reg-mode",
+            "description": "Registration mode for PET to template alignment",
+            "type": "string",
+            "required": true,
+            "replacement-key": "#REG_MODE#",
+            "command-line-flag": "--reg-mode",
+            "default-value": "rigid",
+            "select-values": ["rigid", "affine"]
+        }
+    ],
+    "outputs": [
+        {
+            "name": "centiloid-json",
+            "description": "Complete quantification results in JSON format",
+            "required": true,
+            "mount": "output",
+            "path": "centiloid.json",
+            "glob": null
+        },
+        {
+            "name": "centiloid-csv", 
+            "description": "Summary metrics in CSV format",
+            "required": true,
+            "mount": "output",
+            "path": "centiloid.csv",
+            "glob": null
+        },
+        {
+            "name": "qc-overlay",
+            "description": "Quality control visualization with mask overlays",
+            "required": true,
+            "mount": "output", 
+            "path": "qc_overlay.png",
+            "glob": null
+        },
+        {
+            "name": "converted-nifti",
+            "description": "PET data converted from DICOM to NIfTI",
+            "required": false,
+            "mount": "output",
+            "path": "dcm2niix",
+            "glob": null
+        },
+        {
+            "name": "registration-outputs",
+            "description": "Registered PET image and transformation parameters",
+            "required": true,
+            "mount": "output",
+            "path": "registration",
+            "glob": null
+        }
+    ],
+    "xnat": [
+        {
+            "name": "centiloid-pet-scan",
+            "label": "Centiloid PET Quantification",
+            "description": "Process PET scan for amyloid quantification using Centiloid methodology",
+            "contexts": ["xnat:petScanData"],
+            "external-inputs": [
+                {
+                    "name": "scan",
+                    "description": "Input PET scan",
+                    "type": "Scan",
+                    "required": true,
+                    "provides-files-for-command-mount": "input",
+                    "load-children": false
+                },
+                {
+                    "name": "template",
+                    "description": "Template NIfTI file",
+                    "type": "Resource", 
+                    "required": true,
+                    "provides-value-for-command-input": "template"
+                },
+                {
+                    "name": "target-mask",
+                    "description": "Target mask file",
+                    "type": "Resource",
+                    "required": true, 
+                    "provides-value-for-command-input": "target-mask"
+                },
+                {
+                    "name": "ref-mask",
+                    "description": "Reference mask file", 
+                    "type": "Resource",
+                    "required": true,
+                    "provides-value-for-command-input": "ref-mask"
+                }
+            ],
+            "derived-inputs": [
+                {
+                    "name": "tracer",
+                    "type": "string",
+                    "required": true,
+                    "provides-value-for-command-input": "tracer",
+                    "user-settable": true
+                },
+                {
+                    "name": "mode", 
+                    "type": "string",
+                    "required": true,
+                    "provides-value-for-command-input": "mode", 
+                    "user-settable": true
+                },
+                {
+                    "name": "reg-mode",
+                    "type": "string", 
+                    "required": true,
+                    "provides-value-for-command-input": "reg-mode",
+                    "user-settable": true
+                }
+            ],
+            "output-handlers": [
+                {
+                    "name": "centiloid-results",
+                    "accepts-command-output": "centiloid-json",
+                    "as-a-child-of": "scan",
+                    "type": "Resource",
+                    "label": "Centiloid Results"
+                },
+                {
+                    "name": "centiloid-csv-results",
+                    "accepts-command-output": "centiloid-csv", 
+                    "as-a-child-of": "scan",
+                    "type": "Resource",
+                    "label": "Centiloid CSV Results"
+                },
+                {
+                    "name": "qc-visualization",
+                    "accepts-command-output": "qc-overlay",
+                    "as-a-child-of": "scan", 
+                    "type": "Resource",
+                    "label": "QC Overlay"
+                },
+                {
+                    "name": "nifti-conversion",
+                    "accepts-command-output": "converted-nifti",
+                    "as-a-child-of": "scan",
+                    "type": "Resource", 
+                    "label": "NIfTI Conversion"
+                },
+                {
+                    "name": "registration-files",
+                    "accepts-command-output": "registration-outputs",
+                    "as-a-child-of": "scan",
+                    "type": "Resource",
+                    "label": "Registration Outputs" 
+                }
+            ]
+        }
+    ]
+}
