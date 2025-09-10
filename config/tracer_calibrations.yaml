@@ -1,0 +1,20 @@
+amyloid:
+  PiB:
+    slope: 100.0
+    intercept: -100.0
+  FBP:
+    slope: 196.9
+    intercept: -196.03
+  FBB:
+    slope: 159.08
+    intercept: -151.65
+  FMM:
+    slope: 121.42
+    intercept: -121.16
+  NAV4694:
+    slope: 85.196
+    intercept: -87.599
+tau:
+  generic:
+    slope: 1.0
+    intercept: 0.0
