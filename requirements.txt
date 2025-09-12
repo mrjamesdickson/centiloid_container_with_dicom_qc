@@ -11,3 +11,6 @@ highdicom>=0.20
 
 reportlab>=4.2
 matplotlib>=3.8
+
+# XNAT integration
+requests>=2.31.0

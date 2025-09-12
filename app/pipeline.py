@@ -6,6 +6,7 @@ from nilearn.image import resample_to_img
 from PIL import Image
 import yaml, pandas as pd
 import SimpleITK as sitk
+import logging
 # ---- DICOM Parametric Map (SUVR) writer ----
 import pydicom
 from pydicom.uid import generate_uid, ExplicitVRLittleEndian
@@ -103,18 +104,12 @@ def write_suvr_parametric_map(
         content_label="SUVRMAP",
         content_description="Global SUVR parametric map",
         content_creator_name="Container",
-        pixel_measures=hd.pm.PixelMeasures(
-            pixel_spacing=[float(px_spacing[1]), float(px_spacing[0])],
-            slice_thickness=float(slice_thickness),
-            spacing_between_slices=float(slice_thickness)
-        ),
-        plane_orientation=hd.pm.PlaneOrientation(
-            image_orientation_patient=[1,0,0,0,1,0]  # assumes axes aligned; adjust as needed
-        ),
+        pixel_spacing=[float(px_spacing[1]), float(px_spacing[0])],
+        slice_thickness=float(slice_thickness),
+        image_orientation=[1,0,0,0,1,0],  # assumes axes aligned; adjust as needed
         specimen=None,
-        real_world_value_map=hd.pm.RealWorldValueMap(
-            value_units=units,
-            value_range=None,
+        real_world_value_mapping=hd.pm.RealWorldValueMapping(
+            units_coding=units,
             lut_label="SUVR"
         ),
         quantity=quantity,
@@ -158,8 +153,15 @@ def pet_to_template_registration(pet_nii: str, template_nii: str, out_dir: str, 
     moving = sitk_load(pet_nii)
     fixed = sitk_load(template_nii)
 
-    # Cast to float for registration
+    # Cast to float for registration, handle vector images
+    if moving.GetNumberOfComponentsPerPixel() > 1:
+        # If vector image, extract first component
+        moving = sitk.VectorIndexSelectionCast(moving, 0)
     moving_f = sitk.Cast(moving, sitk.sitkFloat32)
+    
+    if fixed.GetNumberOfComponentsPerPixel() > 1:
+        # If vector image, extract first component  
+        fixed = sitk.VectorIndexSelectionCast(fixed, 0)
     fixed_f = sitk.Cast(fixed, sitk.sitkFloat32)
 
     # Initialize (centered transform)
@@ -368,6 +370,126 @@ def write_encapsulated_pdf(pdf_path: str, out_dir: str, dicom_src_dir: Optional[
     ds.save_as(out_path, write_like_original=False)
     return out_path
 
+def write_pet_with_mask_overlay_series(
+    pet_reg_path: str,
+    target_mask: np.ndarray,
+    ref_mask: np.ndarray,
+    template_path: str,
+    out_dir: str,
+    dicom_src_dir: Optional[str] = None
+) -> str:
+    """Create a DICOM series showing registered PET with mask overlays.
+    Returns path to the directory containing the DICOM series.
+    """
+    import os
+    import numpy as np
+    import nibabel as nib
+    from pydicom.dataset import Dataset, FileDataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
+    
+    os.makedirs(out_dir, exist_ok=True)
+    series_dir = os.path.join(out_dir, "pet_overlay_series")
+    os.makedirs(series_dir, exist_ok=True)
+    
+    # Load PET data
+    pet_img = nib.load(pet_reg_path)
+    pet_data = pet_img.get_fdata().astype(np.float32)
+    
+    # Get patient/study info
+    pid, pname, study_uid, _, frame_of_ref_uid, sdate, stime = _borrow_patient_study_from_dicom(dicom_src_dir)
+    series_uid = generate_uid()
+    
+    # Normalize PET data to 0-255 range for overlay
+    pet_norm = np.nan_to_num(pet_data, nan=0.0, posinf=0.0, neginf=0.0)
+    pet_max = np.percentile(pet_norm, 99.5)
+    pet_norm = np.clip(pet_norm / (pet_max + 1e-6) * 255, 0, 255).astype(np.uint8)
+    
+    slice_paths = []
+    n_slices = pet_data.shape[2]
+    
+    for slice_idx in range(n_slices):
+        # Get current slice data
+        pet_slice = pet_norm[:, :, slice_idx]
+        target_slice = (target_mask[:, :, slice_idx] > 0).astype(np.uint8) * 255
+        ref_slice = (ref_mask[:, :, slice_idx] > 0).astype(np.uint8) * 255
+        
+        # Create RGB overlay: PET as grayscale base, target mask as red, ref mask as green
+        rows, cols = pet_slice.shape
+        rgb_data = np.zeros((rows, cols, 3), dtype=np.uint8)
+        
+        # Base PET in all channels (grayscale)
+        rgb_data[:, :, 0] = pet_slice
+        rgb_data[:, :, 1] = pet_slice  
+        rgb_data[:, :, 2] = pet_slice
+        
+        # Add target mask as red overlay (boost red channel)
+        rgb_data[:, :, 0] = np.maximum(rgb_data[:, :, 0], target_slice)
+        
+        # Add ref mask as green overlay (boost green channel)  
+        rgb_data[:, :, 1] = np.maximum(rgb_data[:, :, 1], ref_slice)
+        
+        # Convert to DICOM coordinate system (LPS from RAS)
+        rgb_data_lps = rgb_data[::-1, ::-1, :]
+        
+        # Create DICOM dataset
+        file_meta = FileMetaDataset()
+        file_meta.FileMetaInformationVersion = b'\x00\x01'
+        file_meta.MediaStorageSOPClassUID = str(SecondaryCaptureImageStorage)
+        file_meta.MediaStorageSOPInstanceUID = generate_uid()
+        file_meta.TransferSyntaxUID = ExplicitVRLittleEndian
+        file_meta.ImplementationClassUID = generate_uid()
+        
+        ds = FileDataset("", {}, file_meta=file_meta, preamble=b"\0" * 128)
+        ds.SOPClassUID = file_meta.MediaStorageSOPClassUID
+        ds.SOPInstanceUID = file_meta.MediaStorageSOPInstanceUID
+        ds.PatientName = pname
+        ds.PatientID = pid
+        ds.StudyInstanceUID = study_uid
+        ds.SeriesInstanceUID = series_uid
+        ds.FrameOfReferenceUID = frame_of_ref_uid
+        ds.Modality = "OT"  # Other
+        ds.SeriesNumber = 9002
+        ds.InstanceNumber = slice_idx + 1
+        ds.ContentDate = sdate
+        ds.ContentTime = stime
+        ds.ImageType = ["DERIVED", "SECONDARY", "OVERLAY"]
+        ds.SeriesDescription = "PET with Mask Overlays"
+        ds.ImageComments = f"PET slice {slice_idx+1} with target (red) and reference (green) mask overlays"
+        
+        # Image data
+        ds.SamplesPerPixel = 3
+        ds.PhotometricInterpretation = "RGB"
+        ds.PlanarConfiguration = 0
+        ds.Rows = rows
+        ds.Columns = cols
+        ds.BitsAllocated = 8
+        ds.BitsStored = 8
+        ds.HighBit = 7
+        ds.PixelRepresentation = 0
+        ds.PixelData = rgb_data_lps.tobytes()
+        
+        # Position information (approximate from NIfTI affine)
+        affine = pet_img.affine
+        pixel_spacing = [abs(affine[0,0]), abs(affine[1,1])]
+        slice_thickness = abs(affine[2,2])
+        slice_location = affine[2,3] + slice_idx * affine[2,2]
+        
+        ds.PixelSpacing = [f"{pixel_spacing[1]:.6f}", f"{pixel_spacing[0]:.6f}"]
+        ds.SliceThickness = f"{slice_thickness:.6f}"
+        ds.SliceLocation = f"{slice_location:.6f}"
+        ds.ImageOrientationPatient = [1, 0, 0, 0, 1, 0]  # Approximate
+        ds.ImagePositionPatient = [0, 0, slice_location]  # Approximate
+        
+        # Save DICOM file
+        slice_filename = f"pet_overlay_{slice_idx+1:04d}.dcm"
+        slice_path = os.path.join(series_dir, slice_filename)
+        ds.is_little_endian = True
+        ds.is_implicit_VR = False
+        ds.save_as(slice_path, write_like_original=False)
+        slice_paths.append(slice_path)
+    
+    return series_dir
+
 def write_sc_from_png(png_path: str, out_dir: str, dicom_src_dir: Optional[str]) -> str:
     os.makedirs(out_dir, exist_ok=True)
     from PIL import Image
@@ -427,6 +549,16 @@ def main():
     ap.add_argument("--calib-yaml", default="/app/config/tracer_calibrations.yaml")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--reg-mode", choices=["rigid","affine"], default="rigid", help="Registration model")
+    
+    # XNAT upload arguments (optional)
+    xnat_group = ap.add_argument_group("XNAT Upload Options")
+    xnat_group.add_argument("--xnat-host", help="XNAT host URL (e.g., https://xnat.example.com)")
+    xnat_group.add_argument("--xnat-user", help="XNAT username")
+    xnat_group.add_argument("--xnat-pass", help="XNAT password")
+    xnat_group.add_argument("--xnat-project", help="XNAT project ID")
+    xnat_group.add_argument("--xnat-session", help="XNAT session/experiment ID")
+    xnat_group.add_argument("--skip-xnat-upload", action="store_true", help="Skip XNAT upload even if credentials provided")
+    
     args = ap.parse_args()
 
     os.makedirs(args.out_dir, exist_ok=True)
@@ -497,17 +629,102 @@ def main():
     qc_png = os.path.join(args.out_dir, "qc_overlay.png")
     save_qc_png(pet_img, tmask, rmask, qc_png)
 
-    # ---- DICOM Parametric Map output ----
-#    pm_dir = os.path.join(args.out_dir, "parametric_map")
-#    pm_path = write_suvr_parametric_map(
-#        suvr_img_path=pet_reg,
-#        template_img_path=args.template,
-#        out_dir=pm_dir,
-#        dicom_src_dir=args.dicom_dir if args.dicom_dir else None
-#    )
-#    out_json["outputs"] = {"parametric_map_dicom": os.path.relpath(pm_path, args.out_dir)}
+    # ---- DICOM Outputs ----
+    dicom_dir = os.path.join(args.out_dir, "dicom_series")
+    
+    # 1. DICOM Parametric Map (SUVR values) - Skip for now due to API issues
+    # pm_path = write_suvr_parametric_map(
+    #     suvr_img_path=pet_reg,
+    #     template_img_path=args.template,
+    #     out_dir=dicom_dir,
+    #     dicom_src_dir=args.dicom_dir if args.dicom_dir else None
+    # )
+    
+    # 2. DICOM Series with mask overlay visualization 
+    overlay_path = write_pet_with_mask_overlay_series(
+        pet_reg, tmask, rmask, args.template,
+        out_dir=dicom_dir,
+        dicom_src_dir=args.dicom_dir if args.dicom_dir else None
+    )
+    
+    # 3. QC Report as PDF DICOM and Secondary Capture
+    pdf_path = os.path.join(args.out_dir, "qc_report.pdf")
+    _compose_qc_pdf(pdf_path, qc_png, out_json)
+    pdf_dicom_path = write_encapsulated_pdf(pdf_path, dicom_dir, args.dicom_dir if args.dicom_dir else None)
+    sc_dicom_path = write_sc_from_png(qc_png, dicom_dir, args.dicom_dir if args.dicom_dir else None)
+    
+    out_json["outputs"] = {
+        "overlay_series_dicom": os.path.relpath(overlay_path, args.out_dir),
+        "qc_report_pdf_dicom": os.path.relpath(pdf_dicom_path, args.out_dir),
+        "qc_report_sc_dicom": os.path.relpath(sc_dicom_path, args.out_dir)
+    }
 
     print(json.dumps(out_json, indent=2))
+    
+    # XNAT Upload (optional)
+    if (args.xnat_host and args.xnat_user and args.xnat_pass and 
+        args.xnat_project and args.xnat_session and 
+        not args.skip_xnat_upload):
+        
+        print("\n=== XNAT Upload ===")
+        try:
+            # Import here to avoid dependency if not using XNAT upload
+            from app.xnat_upload import upload_to_xnat
+            
+            # Get the results JSON file path
+            results_json_path = os.path.join(args.out_dir, "centiloid.json")
+            
+            print(f"Uploading results to XNAT:")
+            print(f"  Host: {args.xnat_host}")
+            print(f"  Project: {args.xnat_project}")
+            print(f"  Session: {args.xnat_session}")
+            
+            success = upload_to_xnat(
+                results_json_path=results_json_path,
+                output_dir=args.out_dir,
+                xnat_host=args.xnat_host,
+                username=args.xnat_user,
+                password=args.xnat_pass,
+                project_id=args.xnat_project,
+                session_id=args.xnat_session
+            )
+            
+            if success:
+                print("✓ Successfully uploaded results to XNAT")
+                out_json["xnat_upload"] = {
+                    "status": "success",
+                    "project": args.xnat_project,
+                    "session": args.xnat_session
+                }
+            else:
+                print("✗ Failed to upload results to XNAT")
+                out_json["xnat_upload"] = {
+                    "status": "failed",
+                    "error": "Upload failed - check logs for details"
+                }
+                
+        except ImportError:
+            print("✗ XNAT upload module not available")
+            out_json["xnat_upload"] = {
+                "status": "failed", 
+                "error": "xnat_upload module not found"
+            }
+        except Exception as e:
+            print(f"✗ XNAT upload failed: {e}")
+            out_json["xnat_upload"] = {
+                "status": "failed",
+                "error": str(e)
+            }
+            
+        # Print updated results with XNAT status
+        print("\n=== Final Results ===")
+        print(json.dumps(out_json, indent=2))
+    else:
+        print("\n=== XNAT Upload Skipped ===")
+        if not all([args.xnat_host, args.xnat_user, args.xnat_pass, args.xnat_project, args.xnat_session]):
+            print("XNAT credentials not fully provided")
+        else:
+            print("XNAT upload explicitly skipped")
 
 if __name__ == "__main__":
     main()

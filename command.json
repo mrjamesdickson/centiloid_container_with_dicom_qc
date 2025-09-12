@@ -4,9 +4,9 @@
     "description": "Quantify amyloid burden in PET scans using Centiloid methodology. Converts DICOM to NIfTI, registers to template space, and calculates SUVR/Centiloid values with QC outputs.",
     "version": "1.0.0",
     "schema-version": "1.0",
-    "image": "xnatworks/xnat_centiloid_container:v1.0.0",
+    "image": "xnatworks/xnat_centiloid_container:v1.0.1",
     "type": "docker",
-    "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE#",
+    "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE# --xnat-host #XNAT_HOST# --xnat-user #XNAT_USER# --xnat-pass #XNAT_PASS# --xnat-project #XNAT_PROJECT# --xnat-session #XNAT_SESSION#",
     "override-entrypoint": true,
     "mounts": [
         {
@@ -26,26 +26,26 @@
         {
             "name": "template",
             "description": "Template NIfTI file that defines the coordinate space of the masks (e.g., MNI space)",
-            "type": "File",
-            "required": true,
+            "type": "string",
+            "required": false,
             "replacement-key": "#TEMPLATE#",
-            "command-line-flag": "--template"
+            "default-value": "/maskdata/template_space.nii.gz"
         },
         {
             "name": "target-mask",
             "description": "Target (cortical) mask in template space for SUVR calculation",
-            "type": "File",
-            "required": true,
+            "type": "string",
+            "required": false,
             "replacement-key": "#TARGET_MASK#",
-            "command-line-flag": "--target-mask"
+            "default-value": "/maskdata/centiloid_ctx_mask.nii.gz"
         },
         {
             "name": "ref-mask", 
             "description": "Reference (cerebellar) mask in template space for SUVR calculation",
-            "type": "File",
-            "required": true,
+            "type": "string",
+            "required": false,
             "replacement-key": "#REF_MASK#",
-            "command-line-flag": "--ref-mask"
+            "default-value": "/maskdata/whole_cerebellum_mask.nii.gz"
         },
         {
             "name": "tracer",
@@ -53,19 +53,15 @@
             "type": "string",
             "required": true,
             "replacement-key": "#TRACER#",
-            "command-line-flag": "--tracer",
-            "default-value": "FBP",
-            "select-values": ["PiB", "FBP", "FBB", "FMM", "NAV4694"]
+            "default-value": "FBP"
         },
         {
             "name": "mode",
             "description": "Processing mode for tracer type",
-            "type": "string", 
+            "type": "string",
             "required": true,
             "replacement-key": "#MODE#",
-            "command-line-flag": "--mode",
-            "default-value": "amyloid",
-            "select-values": ["amyloid", "tau"]
+            "default-value": "amyloid"
         },
         {
             "name": "reg-mode",
@@ -73,9 +69,47 @@
             "type": "string",
             "required": true,
             "replacement-key": "#REG_MODE#",
-            "command-line-flag": "--reg-mode",
-            "default-value": "rigid",
-            "select-values": ["rigid", "affine"]
+            "default-value": "rigid"
+        },
+        {
+            "name": "xnat-host",
+            "description": "XNAT host URL for assessment upload",
+            "type": "string",
+            "required": false,
+            "replacement-key": "#XNAT_HOST#",
+            "default-value": ""
+        },
+        {
+            "name": "xnat-user",
+            "description": "XNAT username for assessment upload",
+            "type": "string",
+            "required": false,
+            "replacement-key": "#XNAT_USER#",
+            "default-value": ""
+        },
+        {
+            "name": "xnat-pass",
+            "description": "XNAT password for assessment upload",
+            "type": "string",
+            "required": false,
+            "replacement-key": "#XNAT_PASS#",
+            "default-value": ""
+        },
+        {
+            "name": "xnat-project",
+            "description": "XNAT project ID for assessment upload",
+            "type": "string",
+            "required": false,
+            "replacement-key": "#XNAT_PROJECT#",
+            "default-value": ""
+        },
+        {
+            "name": "xnat-session",
+            "description": "XNAT session ID for assessment upload",
+            "type": "string",
+            "required": false,
+            "replacement-key": "#XNAT_SESSION#",
+            "default-value": ""
         }
     ],
     "outputs": [
@@ -118,13 +152,21 @@
             "mount": "output",
             "path": "registration",
             "glob": null
+        },
+        {
+            "name": "dicom-series",
+            "description": "DICOM series with parametric map, overlays, and QC reports",
+            "required": true,
+            "mount": "output",
+            "path": "dicom_series",
+            "glob": null
         }
     ],
     "xnat": [
         {
-            "name": "centiloid-pet-scan",
-            "label": "Centiloid PET Quantification",
-            "description": "Process PET scan for amyloid quantification using Centiloid methodology",
+            "name": "centiloud-pet-scan",
+            "label": "Centiloud PET Quantification",
+            "description": "Process PET scan for amyloid quantification using Centiloud methodology",
             "contexts": ["xnat:petScanData"],
             "external-inputs": [
                 {
@@ -136,85 +178,120 @@
                     "load-children": false
                 },
                 {
-                    "name": "template",
-                    "description": "Template NIfTI file",
-                    "type": "Resource", 
-                    "required": true,
-                    "provides-value-for-command-input": "template"
-                },
-                {
-                    "name": "target-mask",
-                    "description": "Target mask file",
-                    "type": "Resource",
-                    "required": true, 
-                    "provides-value-for-command-input": "target-mask"
-                },
-                {
-                    "name": "ref-mask",
-                    "description": "Reference mask file", 
-                    "type": "Resource",
-                    "required": true,
-                    "provides-value-for-command-input": "ref-mask"
-                }
-            ],
-            "derived-inputs": [
-                {
                     "name": "tracer",
+                    "description": "PET tracer type",
                     "type": "string",
                     "required": true,
-                    "provides-value-for-command-input": "tracer",
-                    "user-settable": true
+                    "user-settable": true,
+                    "default-value": "FBP",
+                    "provides-value-for-command-input": "tracer"
                 },
                 {
-                    "name": "mode", 
-                    "type": "string",
+                    "name": "mode",
+                    "description": "Processing mode",
+                    "type": "string", 
                     "required": true,
-                    "provides-value-for-command-input": "mode", 
-                    "user-settable": true
+                    "user-settable": true,
+                    "default-value": "amyloid",
+                    "provides-value-for-command-input": "mode"
                 },
                 {
                     "name": "reg-mode",
-                    "type": "string", 
+                    "description": "Registration mode",
+                    "type": "string",
                     "required": true,
-                    "provides-value-for-command-input": "reg-mode",
-                    "user-settable": true
+                    "user-settable": true,
+                    "default-value": "rigid",
+                    "provides-value-for-command-input": "reg-mode"
+                },
+                {
+                    "name": "xnat-host",
+                    "description": "XNAT host URL (automatically filled)",
+                    "type": "string",
+                    "required": false,
+                    "user-settable": false,
+                    "default-value": "#XNAT_BASE_URL#",
+                    "provides-value-for-command-input": "xnat-host"
+                },
+                {
+                    "name": "xnat-user",
+                    "description": "XNAT username (automatically filled)",
+                    "type": "string",
+                    "required": false,
+                    "user-settable": false,
+                    "default-value": "#USER_ID#",
+                    "provides-value-for-command-input": "xnat-user"
+                },
+                {
+                    "name": "xnat-pass",
+                    "description": "XNAT password (automatically filled)",
+                    "type": "string",
+                    "required": false,
+                    "user-settable": false,
+                    "default-value": "#USER_PASSWORD#",
+                    "provides-value-for-command-input": "xnat-pass"
+                },
+                {
+                    "name": "xnat-project",
+                    "description": "XNAT project ID (automatically filled)",
+                    "type": "string",
+                    "required": false,
+                    "user-settable": false,
+                    "default-value": "#PROJECT_ID#",
+                    "provides-value-for-command-input": "xnat-project"
+                },
+                {
+                    "name": "xnat-session",
+                    "description": "XNAT session ID (automatically filled)",
+                    "type": "string",
+                    "required": false,
+                    "user-settable": false,
+                    "default-value": "#SUBJECT_ID#",
+                    "provides-value-for-command-input": "xnat-session"
                 }
             ],
             "output-handlers": [
                 {
-                    "name": "centiloid-results",
+                    "name": "centiloud-results",
                     "accepts-command-output": "centiloid-json",
                     "as-a-child-of": "scan",
                     "type": "Resource",
-                    "label": "Centiloid Results"
+                    "label": "centiloud-results"
                 },
                 {
-                    "name": "centiloid-csv-results",
+                    "name": "centiloud-csv-results",
                     "accepts-command-output": "centiloid-csv", 
                     "as-a-child-of": "scan",
                     "type": "Resource",
-                    "label": "Centiloid CSV Results"
+                    "label": "centiloud-csv-results"
                 },
                 {
                     "name": "qc-visualization",
                     "accepts-command-output": "qc-overlay",
                     "as-a-child-of": "scan", 
                     "type": "Resource",
-                    "label": "QC Overlay"
+                    "label": "qc-visualization"
                 },
                 {
                     "name": "nifti-conversion",
                     "accepts-command-output": "converted-nifti",
                     "as-a-child-of": "scan",
                     "type": "Resource", 
-                    "label": "NIfTI Conversion"
+                    "label": "nifti-conversion"
                 },
                 {
                     "name": "registration-files",
                     "accepts-command-output": "registration-outputs",
                     "as-a-child-of": "scan",
                     "type": "Resource",
-                    "label": "Registration Outputs" 
+                    "label": "registration-files" 
+                },
+                {
+                    "name": "dicom-results",
+                    "accepts-command-output": "dicom-series",
+                    "as-a-child-of": "scan",
+                    "type": "Resource",
+                    "label": "dicom-results"
                 }
             ]
         }

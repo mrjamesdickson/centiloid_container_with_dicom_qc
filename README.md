@@ -11,6 +11,11 @@ docker build -t xnatworks/xnat_centiloid_container .
 ```
 docker run --rm -v $PWD:/data xnatworks/xnat_centiloid_container   --dicom-dir /data/pet_dicom/   --template /data/template_space.nii.gz   --target-mask /data/centiloid_ctx_mask.nii.gz   --ref-mask /data/whole_cerebellum_mask.nii.gz   --tracer FBP   --mode amyloid   --out-dir /data/out   --reg-mode rigid
 ```
+
+## Run with XNAT Upload (DICOM input)
+```
+docker run --rm -v $PWD:/data xnatworks/xnat_centiloid_container   --dicom-dir /data/pet_dicom/   --template /data/template_space.nii.gz   --target-mask /data/centiloid_ctx_mask.nii.gz   --ref-mask /data/whole_cerebellum_mask.nii.gz   --tracer FBP   --mode amyloid   --out-dir /data/out   --reg-mode rigid   --xnat-host https://your-xnat.com   --xnat-user username   --xnat-pass password   --xnat-project PROJECT_ID   --xnat-session SESSION_ID
+```
 - Outputs:
   - `out/dcm2niix/pet.nii.gz` (converted NIfTI)
   - `out/registration/pet_in_template.nii.gz` (registered to mask space)
@@ -49,3 +54,54 @@ The pipeline now produces a **PDF QC report** with the mask overlays and key met
 - Secondary Capture DICOM: `out/qc_dicom/QC_Report_SC.dcm` (single-frame RGB derived image)
 
 These carry Patient/Study metadata copied from the source DICOM (when available), enabling archival in PACS.
+
+---
+## NEW: XNAT Integration
+The pipeline now includes automatic XNAT integration to create structured assessments:
+
+### Features
+- **Automatic Assessment Creation**: Creates a Centiloid assessment in XNAT with all quantitative metrics
+- **File Upload**: Uploads QC images, PDFs, DICOM files, and results to XNAT
+- **Structured Data**: Stores results in the Centiloid plugin datatype for easy querying and reporting
+- **Error Handling**: Robust error handling with detailed logging
+
+### XNAT Arguments
+- `--xnat-host`: XNAT server URL (e.g., https://xnat.example.com)
+- `--xnat-user`: XNAT username
+- `--xnat-pass`: XNAT password  
+- `--xnat-project`: XNAT project ID
+- `--xnat-session`: XNAT session/experiment ID
+- `--skip-xnat-upload`: Skip XNAT upload even if credentials are provided
+
+### Requirements
+1. Install the [Centiloid XNAT Plugin](../pet_centiloid_xnat_datatype) on your XNAT server
+2. Ensure the plugin is active and the schema is loaded
+3. Provide valid XNAT credentials and session information
+
+### Example with XNAT Upload
+```bash
+docker run --rm -v $PWD:/data xnatworks/xnat_centiloid_container \
+  --dicom-dir /data/pet_dicom/ \
+  --template /data/template_space.nii.gz \
+  --target-mask /data/centiloid_ctx_mask.nii.gz \
+  --ref-mask /data/whole_cerebellum_mask.nii.gz \
+  --tracer FBP \
+  --mode amyloid \
+  --out-dir /data/out \
+  --reg-mode rigid \
+  --xnat-host https://your-xnat.com \
+  --xnat-user your_username \
+  --xnat-pass your_password \
+  --xnat-project PROJECT_ID \
+  --xnat-session SESSION_ID
+```
+
+### XNAT Container Service Integration
+When running via XNAT Container Service, the XNAT parameters are automatically populated:
+- `--xnat-host` → Filled with XNAT base URL
+- `--xnat-user` → Filled with user ID  
+- `--xnat-pass` → Filled with user password/token
+- `--xnat-project` → Filled with project ID
+- `--xnat-session` → Filled with session ID
+
+No additional configuration required when launching from XNAT!

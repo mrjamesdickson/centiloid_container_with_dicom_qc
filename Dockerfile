@@ -14,6 +14,12 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 COPY app /app/app
 COPY config /app/config
 
+# Copy template and mask files to /maskdata/ for default usage
+RUN mkdir -p /maskdata
+COPY test_data/template_space.nii.gz /maskdata/template_space.nii.gz
+COPY test_data/centiloid_ctx_mask.nii.gz /maskdata/centiloid_ctx_mask.nii.gz
+COPY test_data/whole_cerebellum_mask.nii.gz /maskdata/whole_cerebellum_mask.nii.gz
+
 ENV PYTHONUNBUFFERED=1
 
 ENTRYPOINT ["python", "-m", "app.pipeline"]
