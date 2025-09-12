@@ -6,7 +6,7 @@
     "schema-version": "1.0",
     "image": "xnatworks/xnat_centiloid_container:v1.1.2",
     "type": "docker",
-    "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE# --xnat-host #XNAT_HOST# --xnat-user #XNAT_USER# --xnat-pass #XNAT_PASS# --xnat-project #XNAT_PROJECT# --xnat-session #XNAT_SESSION#",
+    "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE#",
     "override-entrypoint": true,
     "mounts": [
         {
@@ -70,46 +70,6 @@
             "required": true,
             "replacement-key": "#REG_MODE#",
             "default-value": "rigid"
-        },
-        {
-            "name": "xnat-host",
-            "description": "XNAT host URL for assessment upload",
-            "type": "string",
-            "required": false,
-            "replacement-key": "#XNAT_HOST#",
-            "default-value": ""
-        },
-        {
-            "name": "xnat-user",
-            "description": "XNAT username for assessment upload",
-            "type": "string",
-            "required": false,
-            "replacement-key": "#XNAT_USER#",
-            "default-value": ""
-        },
-        {
-            "name": "xnat-pass",
-            "description": "XNAT password for assessment upload",
-            "type": "string",
-            "required": false,
-            "replacement-key": "#XNAT_PASS#",
-            "default-value": ""
-        },
-        {
-            "name": "xnat-project",
-            "description": "XNAT project ID for assessment upload",
-            "type": "string",
-            "required": false,
-            "replacement-key": "#XNAT_PROJECT#",
-            "default-value": ""
-        },
-        {
-            "name": "xnat-session",
-            "description": "XNAT session ID for assessment upload",
-            "type": "string",
-            "required": false,
-            "replacement-key": "#XNAT_SESSION#",
-            "default-value": ""
         }
     ],
     "outputs": [
@@ -203,51 +163,6 @@
                     "user-settable": true,
                     "default-value": "rigid",
                     "provides-value-for-command-input": "reg-mode"
-                },
-                {
-                    "name": "xnat-host",
-                    "description": "XNAT host URL (automatically filled)",
-                    "type": "string",
-                    "required": false,
-                    "user-settable": false,
-                    "default-value": "#XNAT_BASE_URL#",
-                    "provides-value-for-command-input": "xnat-host"
-                },
-                {
-                    "name": "xnat-user",
-                    "description": "XNAT username (automatically filled)",
-                    "type": "string",
-                    "required": false,
-                    "user-settable": false,
-                    "default-value": "#USER_ID#",
-                    "provides-value-for-command-input": "xnat-user"
-                },
-                {
-                    "name": "xnat-pass",
-                    "description": "XNAT password (automatically filled)",
-                    "type": "string",
-                    "required": false,
-                    "user-settable": false,
-                    "default-value": "#USER_PASSWORD#",
-                    "provides-value-for-command-input": "xnat-pass"
-                },
-                {
-                    "name": "xnat-project",
-                    "description": "XNAT project ID (automatically filled)",
-                    "type": "string",
-                    "required": false,
-                    "user-settable": false,
-                    "default-value": "#PROJECT_ID#",
-                    "provides-value-for-command-input": "xnat-project"
-                },
-                {
-                    "name": "xnat-session",
-                    "description": "XNAT session ID (automatically filled)",
-                    "type": "string",
-                    "required": false,
-                    "user-settable": false,
-                    "default-value": "#SUBJECT_ID#",
-                    "provides-value-for-command-input": "xnat-session"
                 }
             ],
             "output-handlers": [

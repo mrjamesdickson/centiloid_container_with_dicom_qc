@@ -561,6 +561,18 @@ def main():
     
     args = ap.parse_args()
 
+    # Fallback to environment variables for XNAT parameters if not provided via command line
+    if not args.xnat_host and 'XNAT_HOST' in os.environ:
+        args.xnat_host = os.environ['XNAT_HOST']
+    if not args.xnat_user and 'XNAT_USER' in os.environ:
+        args.xnat_user = os.environ['XNAT_USER']  
+    if not args.xnat_pass and 'XNAT_PASS' in os.environ:
+        args.xnat_pass = os.environ['XNAT_PASS']
+    if not args.xnat_project and 'XNAT_PROJECT' in os.environ:
+        args.xnat_project = os.environ['XNAT_PROJECT']
+    if not args.xnat_session and 'XNAT_SESSION' in os.environ:
+        args.xnat_session = os.environ['XNAT_SESSION']
+
     os.makedirs(args.out_dir, exist_ok=True)
 
     # Step 1: DICOM -> NIfTI (if needed)
