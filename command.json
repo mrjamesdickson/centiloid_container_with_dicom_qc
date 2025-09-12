@@ -2,9 +2,9 @@
     "name": "centiloid-pet-quantification",
     "label": "Centiloid PET Quantification",
     "description": "Quantify amyloid burden in PET scans using Centiloid methodology. Converts DICOM to NIfTI, registers to template space, and calculates SUVR/Centiloid values with QC outputs.",
-    "version": "1.1.5",
+    "version": "1.1.6",
     "schema-version": "1.0",
-    "image": "xnatworks/xnat_centiloid_container:v1.1.5",
+    "image": "xnatworks/xnat_centiloid_container:v1.1.6",
     "type": "docker",
     "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE# --xnat-host $XNAT_HOST --xnat-user $XNAT_USER --xnat-pass $XNAT_PASS --xnat-project #PROJECT# --xnat-session #SESSION_ID#",
     "override-entrypoint": true,
@@ -199,7 +199,7 @@
                     "provides-value-for-command-input": "project",
                     "load-children": true,
                     "derived-from-wrapper-input": "scan",
-                    "derived-from-xnat-object-property": "project",
+                    "derived-from-xnat-object-property": "project-id",
                     "multiple": false
                 }
             ],
