@@ -83,7 +83,7 @@ class XNATUploader:
             
     def create_assessment(self, results_data: Dict[str, Any], output_dir: str) -> Optional[str]:
         """
-        Create Centiloid assessment in XNAT
+        Create Centiloid assessment in XNAT using XML that conforms to centiloid.xsd
         
         Args:
             results_data: Centiloid processing results
@@ -93,32 +93,49 @@ class XNATUploader:
             Assessment ID if successful, None if failed
         """
         try:
-            # Prepare assessment data
-            assessment_data = self._prepare_assessment_data(results_data, output_dir)
+            print(f"[DEBUG] Creating XML assessment from results data")
             
-            # Create assessment via REST API
-            url = f"{self.xnat_host}/xapi/centiloid/projects/{self.project_id}/sessions/{self.session_id}/assessments"
+            # Create XML that conforms to the schema
+            xml_content = self._create_centiloid_xml(results_data, output_dir)
+            print(f"[DEBUG] Generated XML content ({len(xml_content)} chars)")
             
-            logger.info(f"Creating XNAT assessment at: {url}")
-            response = self.session.post(url, json=assessment_data, timeout=self.timeout)
+            # Use imageAssessor endpoint as specified
+            url = f"{self.xnat_host}/data/projects/{self.project_id}/subjects/{self.session_id}/experiments/{self.session_id}/assessors"
+            print(f"[DEBUG] Creating assessment at URL: {url}")
+            
+            # Send XML as content
+            headers = {
+                'Content-Type': 'application/xml',
+                'Accept': 'application/json'
+            }
+            
+            response = self.session.post(url, data=xml_content, headers=headers, timeout=self.timeout)
+            print(f"[DEBUG] Response status: {response.status_code}")
+            print(f"[DEBUG] Response text: {response.text[:500]}...")
+            
             response.raise_for_status()
             
-            result = response.json()
-            assessment_id = result.get("id")
+            # Extract assessment ID from response
+            assessment_id = self._extract_assessment_id(response)
             
             if assessment_id:
+                print(f"[DEBUG] Successfully created assessment: {assessment_id}")
                 logger.info(f"Successfully created XNAT assessment: {assessment_id}")
                 return assessment_id
             else:
-                logger.error(f"No assessment ID returned: {result}")
+                print(f"[ERROR] Failed to extract assessment ID from response")
+                logger.error(f"No assessment ID returned: {response.text}")
                 return None
                 
         except requests.exceptions.RequestException as e:
+            print(f"[ERROR] HTTP error creating assessment: {e}")
             logger.error(f"HTTP error creating assessment: {e}")
             if hasattr(e, 'response') and e.response:
+                print(f"[ERROR] Response content: {e.response.text}")
                 logger.error(f"Response content: {e.response.text}")
             return None
         except Exception as e:
+            print(f"[ERROR] Error creating assessment: {e}")
             logger.error(f"Error creating assessment: {e}")
             return None
             
@@ -197,6 +214,128 @@ class XNATUploader:
         except Exception as e:
             logger.error(f"Failed to upload {description} ({file_path.name}): {e}")
             return False
+    
+    def _create_centiloid_xml(self, results_data: Dict[str, Any], output_dir: str) -> str:
+        """
+        Create XML content that conforms to centiloid.xsd schema
+        
+        Args:
+            results_data: Centiloid processing results
+            output_dir: Directory containing output files
+            
+        Returns:
+            XML content as string
+        """
+        from datetime import datetime
+        import xml.etree.ElementTree as ET
+        
+        # Create root element with proper namespace
+        root = ET.Element("centiloid:CentiloidAssessment")
+        root.set("xmlns:centiloid", "http://nrg.wustl.edu/centiloid")
+        root.set("xmlns:xnat", "http://nrg.wustl.edu/xnat")
+        root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+        root.set("ID", f"CENTILOID_{self.session_id}_{int(datetime.now().timestamp())}")
+        root.set("project", self.project_id)
+        root.set("label", f"Centiloid_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        
+        # Add input parameters
+        if "inputs" in results_data:
+            inputs = results_data["inputs"]
+            
+            if inputs.get("dicom_dir"):
+                ET.SubElement(root, "centiloid:dicom_dir").text = str(inputs["dicom_dir"])
+            if inputs.get("pet_nifti"):
+                ET.SubElement(root, "centiloid:pet_nifti").text = str(inputs["pet_nifti"])
+            if inputs.get("template"):
+                ET.SubElement(root, "centiloid:template").text = str(inputs["template"])
+            if inputs.get("target_mask"):
+                ET.SubElement(root, "centiloid:target_mask").text = str(inputs["target_mask"])
+            if inputs.get("ref_mask"):
+                ET.SubElement(root, "centiloid:ref_mask").text = str(inputs["ref_mask"])
+            if inputs.get("tracer"):
+                ET.SubElement(root, "centiloid:tracer").text = str(inputs["tracer"])
+            if inputs.get("mode"):
+                ET.SubElement(root, "centiloid:mode").text = str(inputs["mode"])
+            if inputs.get("reg_mode"):
+                ET.SubElement(root, "centiloid:reg_mode").text = str(inputs["reg_mode"])
+        
+        # Add processing results
+        if "outputs" in results_data:
+            outputs = results_data["outputs"]
+            
+            if outputs.get("converted_pet_nifti"):
+                ET.SubElement(root, "centiloid:converted_pet_nifti").text = str(outputs["converted_pet_nifti"])
+            if outputs.get("registered_pet_nifti"):
+                ET.SubElement(root, "centiloid:registered_pet_nifti").text = str(outputs["registered_pet_nifti"])
+            if outputs.get("transform"):
+                ET.SubElement(root, "centiloid:transform").text = str(outputs["transform"])
+        
+        # Add quantitative metrics
+        if "metrics" in results_data:
+            metrics = results_data["metrics"]
+            
+            if metrics.get("target_mean") is not None:
+                ET.SubElement(root, "centiloid:target_mean").text = str(metrics["target_mean"])
+            if metrics.get("reference_mean") is not None:
+                ET.SubElement(root, "centiloid:reference_mean").text = str(metrics["reference_mean"])
+            if metrics.get("suvr_global_cortex_over_ref") is not None:
+                ET.SubElement(root, "centiloid:suvr_global_cortex_over_ref").text = str(metrics["suvr_global_cortex_over_ref"])
+            if metrics.get("scaled_value") is not None:
+                ET.SubElement(root, "centiloid:scaled_value").text = str(metrics["scaled_value"])
+            if metrics.get("scaled_units"):
+                ET.SubElement(root, "centiloid:scaled_units").text = str(metrics["scaled_units"])
+        
+        # Add output files
+        if "files" in results_data:
+            files = results_data["files"]
+            
+            if files.get("qc_overlay_file"):
+                ET.SubElement(root, "centiloid:qc_overlay_file").text = str(files["qc_overlay_file"])
+            if files.get("qc_pdf_file"):
+                ET.SubElement(root, "centiloid:qc_pdf_file").text = str(files["qc_pdf_file"])
+            if files.get("parametric_map_file"):
+                ET.SubElement(root, "centiloid:parametric_map_file").text = str(files["parametric_map_file"])
+            if files.get("results_json"):
+                ET.SubElement(root, "centiloid:results_json").text = str(files["results_json"])
+            if files.get("results_csv"):
+                ET.SubElement(root, "centiloid:results_csv").text = str(files["results_csv"])
+        
+        # Add processing metadata
+        ET.SubElement(root, "centiloid:processing_status").text = "completed"
+        ET.SubElement(root, "centiloid:processing_date").text = datetime.now().isoformat()
+        ET.SubElement(root, "centiloid:container_version").text = "1.1.7"
+        
+        # Convert to string with XML declaration
+        xml_str = ET.tostring(root, encoding='unicode')
+        return f'<?xml version="1.0" encoding="UTF-8"?>\n{xml_str}'
+    
+    def _extract_assessment_id(self, response) -> Optional[str]:
+        """
+        Extract assessment ID from XNAT response
+        
+        Args:
+            response: HTTP response from XNAT
+            
+        Returns:
+            Assessment ID if found, None otherwise
+        """
+        try:
+            if response.headers.get('content-type', '').startswith('application/json'):
+                result = response.json()
+                return result.get("ID") or result.get("id")
+            else:
+                # Try to extract from XML response
+                import xml.etree.ElementTree as ET
+                root = ET.fromstring(response.text)
+                return root.get("ID")
+        except Exception as e:
+            print(f"[DEBUG] Failed to extract assessment ID: {e}")
+            # Fallback: try to extract from response text
+            import re
+            match = re.search(r'ID["\s]*[:=]["\s]*([^">\s]+)', response.text)
+            if match:
+                return match.group(1)
+            return None
             
     def _prepare_assessment_data(self, results_data: Dict[str, Any], output_dir: str) -> Dict[str, Any]:
         """Prepare assessment data for XNAT API"""
