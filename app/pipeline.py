@@ -572,6 +572,12 @@ def main():
         args.xnat_project = os.environ['XNAT_PROJECT']
     if not args.xnat_session and 'XNAT_SESSION' in os.environ:
         args.xnat_session = os.environ['XNAT_SESSION']
+    
+    # XNAT Container Service may use different environment variable names
+    if not args.xnat_project and 'XNAT_WORKFLOW_ID' in os.environ:
+        args.xnat_project = os.environ['XNAT_WORKFLOW_ID']
+    if not args.xnat_session and 'XNAT_EVENT_ID' in os.environ:
+        args.xnat_session = os.environ['XNAT_EVENT_ID']
 
     os.makedirs(args.out_dir, exist_ok=True)
 
