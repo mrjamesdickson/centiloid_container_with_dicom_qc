@@ -675,7 +675,18 @@ def main():
             # Get the results JSON file path
             results_json_path = os.path.join(args.out_dir, "centiloid.json")
             
-            print(f"Uploading results to XNAT:")
+            print(f"Debug - XNAT Parameters:")
+            print(f"  Host: {args.xnat_host}")
+            print(f"  User: {args.xnat_user}")
+            print(f"  Password: {'*' * len(args.xnat_pass) if args.xnat_pass else 'None'}")
+            print(f"  Project: {args.xnat_project}")
+            print(f"  Session: {args.xnat_session}")
+            print(f"  Results JSON: {results_json_path}")
+            print(f"  Results JSON exists: {os.path.exists(results_json_path)}")
+            print(f"  Output directory: {args.out_dir}")
+            print(f"  Output dir contents: {os.listdir(args.out_dir) if os.path.exists(args.out_dir) else 'Directory not found'}")
+            
+            print(f"\nUploading results to XNAT:")
             print(f"  Host: {args.xnat_host}")
             print(f"  Project: {args.xnat_project}")
             print(f"  Session: {args.xnat_session}")

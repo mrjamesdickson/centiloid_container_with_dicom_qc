@@ -68,11 +68,16 @@ class XNATUploader:
         """Test XNAT connection and authentication"""
         try:
             url = f"{self.xnat_host}/xapi/version"
+            print(f"[DEBUG] Testing connection to: {url}")
             response = self.session.get(url, timeout=30)
+            print(f"[DEBUG] Response status: {response.status_code}")
+            print(f"[DEBUG] Response text: {response.text[:200]}...")
             response.raise_for_status()
             logger.info(f"XNAT connection successful. Version: {response.text.strip()}")
             return True
         except Exception as e:
+            print(f"[ERROR] Connection failed with exception: {str(e)}")
+            print(f"[ERROR] Exception type: {type(e).__name__}")
             logger.error(f"XNAT connection failed: {e}")
             return False
             
@@ -286,30 +291,57 @@ def upload_to_xnat(results_json_path: str, output_dir: str,
     )
     
     try:
+        print(f"[DEBUG] Starting XNAT upload process")
+        print(f"[DEBUG] Results JSON path: {results_json_path}")
+        print(f"[DEBUG] Output directory: {output_dir}")
+        print(f"[DEBUG] XNAT host: {xnat_host}")
+        print(f"[DEBUG] Username: {username}")
+        print(f"[DEBUG] Project ID: {project_id}")
+        print(f"[DEBUG] Session ID: {session_id}")
+        
         # Load results data
+        print(f"[DEBUG] Loading results from {results_json_path}")
+        if not os.path.exists(results_json_path):
+            print(f"[ERROR] Results file not found: {results_json_path}")
+            return False
+            
         with open(results_json_path, 'r') as f:
             results_data = json.load(f)
+            
+        print(f"[DEBUG] Results data loaded successfully")
+        print(f"[DEBUG] Results keys: {list(results_data.keys())}")
             
         logger.info(f"Loaded results from: {results_json_path}")
         
         # Initialize uploader
+        print(f"[DEBUG] Initializing XNAT uploader")
         uploader = XNATUploader(xnat_host, username, password, project_id, session_id)
+        print(f"[DEBUG] Uploader initialized successfully")
         
         # Test connection
+        print(f"[DEBUG] Testing XNAT connection...")
         if not uploader.test_connection():
+            print(f"[ERROR] XNAT connection test failed")
             logger.error("XNAT connection test failed")
             return False
+        print(f"[DEBUG] Connection test successful")
             
         # Create assessment
+        print(f"[DEBUG] Creating XNAT assessment...")
         assessment_id = uploader.create_assessment(results_data, output_dir)
         if not assessment_id:
+            print(f"[ERROR] Failed to create XNAT assessment")
             logger.error("Failed to create XNAT assessment")
             return False
+        print(f"[DEBUG] Assessment created with ID: {assessment_id}")
             
         # Upload files
+        print(f"[DEBUG] Uploading files...")
         if not uploader.upload_files(assessment_id, output_dir):
+            print(f"[ERROR] File upload failed")
             logger.error("File upload failed")
             return False
+        print(f"[DEBUG] Files uploaded successfully")
             
         logger.info(f"Successfully uploaded Centiloid results to XNAT assessment: {assessment_id}")
         return True
