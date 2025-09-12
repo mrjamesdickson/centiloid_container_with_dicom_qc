@@ -2,11 +2,11 @@
     "name": "centiloid-pet-quantification",
     "label": "Centiloid PET Quantification",
     "description": "Quantify amyloid burden in PET scans using Centiloid methodology. Converts DICOM to NIfTI, registers to template space, and calculates SUVR/Centiloid values with QC outputs.",
-    "version": "1.1.4",
+    "version": "1.1.5",
     "schema-version": "1.0",
-    "image": "xnatworks/xnat_centiloid_container:v1.1.4",
+    "image": "xnatworks/xnat_centiloid_container:v1.1.5",
     "type": "docker",
-    "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE# --xnat-host $XNAT_HOST --xnat-user $XNAT_USER --xnat-pass $XNAT_PASS --xnat-project #PROJECT_ID# --xnat-session #SESSION_ID#",
+    "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE# --xnat-host $XNAT_HOST --xnat-user $XNAT_USER --xnat-pass $XNAT_PASS --xnat-project #PROJECT# --xnat-session #SESSION_ID#",
     "override-entrypoint": true,
     "mounts": [
         {
@@ -70,6 +70,20 @@
             "required": true,
             "replacement-key": "#REG_MODE#",
             "default-value": "rigid"
+        },
+        {
+            "name": "session_id",
+            "description": "XNAT session ID",
+            "type": "string",
+            "required": true,
+            "replacement-key": "#SESSION_ID#"
+        },
+        {
+            "name": "project",
+            "description": "XNAT project ID", 
+            "type": "string",
+            "required": true,
+            "replacement-key": "#PROJECT#"
         }
     ],
     "outputs": [
@@ -163,24 +177,30 @@
                     "user-settable": true,
                     "default-value": "rigid",
                     "provides-value-for-command-input": "reg-mode"
+                }
+            ],
+            "derived-inputs": [
+                {
+                    "name": "session-id",
+                    "description": "The session's id", 
+                    "type": "string",
+                    "required": true,
+                    "provides-value-for-command-input": "session_id",
+                    "load-children": true,
+                    "derived-from-wrapper-input": "scan",
+                    "derived-from-xnat-object-property": "session-id",
+                    "multiple": false
                 },
                 {
-                    "name": "project",
-                    "description": "XNAT project ID (automatically filled)",
-                    "type": "string",
-                    "required": false,
-                    "user-settable": false,
-                    "default-value": "#PROJECT_ID#",
-                    "provides-value-for-command-input": "xnat-project"
-                },
-                {
-                    "name": "session", 
-                    "description": "XNAT session ID (automatically filled)",
-                    "type": "string",
-                    "required": false,
-                    "user-settable": false,
-                    "default-value": "#SESSION_ID#",
-                    "provides-value-for-command-input": "xnat-session"
+                    "name": "project-id",
+                    "description": "The project",
+                    "type": "string", 
+                    "required": true,
+                    "provides-value-for-command-input": "project",
+                    "load-children": true,
+                    "derived-from-wrapper-input": "scan",
+                    "derived-from-xnat-object-property": "project",
+                    "multiple": false
                 }
             ],
             "output-handlers": [
