@@ -14,7 +14,7 @@ IMAGE_NAME := xnatworks/xnat_centiloid_container
 # Auto-increment patch version
 NEW_VERSION := $(shell echo $(VERSION) | awk -F. '{$$NF = $$NF + 1;} 1' | sed 's/ /./g')
 
-# Use provided VERSION or auto-increment
+# Use provided VERSION_OVERRIDE or auto-increment
 BUILD_VERSION := $(if $(VERSION_OVERRIDE),$(VERSION_OVERRIDE),$(NEW_VERSION))
 
 help:
@@ -37,12 +37,12 @@ version:
 update-version:
 	@echo "Updating version from $(VERSION) to $(BUILD_VERSION)"
 	@sed -i.bak \
-		-e 's/"version": "[^"]*"/"version": "$(BUILD_VERSION)"/' \
-		-e 's/"image": "[^"]*"/"image": "$(IMAGE_NAME):v$(BUILD_VERSION)"/' \
+		-e 's|"version": "[^"]*"|"version": "$(BUILD_VERSION)"|' \
+		-e 's|"image": "[^"]*"|"image": "$(IMAGE_NAME):v$(BUILD_VERSION)"|' \
 		command.json
 	@rm -f command.json.bak
 	@sed -i.bak \
-		's/ET.SubElement(root, "centiloid:container_version").text = "[^"]*"/ET.SubElement(root, "centiloid:container_version").text = "$(BUILD_VERSION)"/' \
+		's|ET.SubElement(root, "centiloid:container_version").text = "[^"]*"|ET.SubElement(root, "centiloid:container_version").text = "$(BUILD_VERSION)"|' \
 		app/xnat_upload.py
 	@rm -f app/xnat_upload.py.bak
 	@echo "✓ Updated to version $(BUILD_VERSION)"
@@ -71,6 +71,6 @@ clean:
 	@echo "✓ Cleaned up Docker images"
 
 # Override version from command line
-ifneq ($(VERSION),)
+ifdef VERSION
 BUILD_VERSION := $(VERSION)
 endif
