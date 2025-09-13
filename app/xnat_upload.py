@@ -103,13 +103,19 @@ class XNATUploader:
             url = f"{self.xnat_host}/data/projects/{self.project_id}/subjects/{self.session_id}/experiments/{self.session_id}/assessors"
             print(f"[DEBUG] Creating assessment at URL: {url}")
             
-            # Send XML as content
+            # Send XML as content with xsiType parameter for custom datatype
             headers = {
                 'Content-Type': 'application/xml',
                 'Accept': 'application/json'
             }
             
-            response = self.session.post(url, data=xml_content, headers=headers, timeout=self.timeout)
+            # Use xsiType parameter to specify centiloid datatype
+            params = {
+                'xsiType': 'centiloid:CentiloidAssessment',
+                'ID': f"CENTILOID_{self.session_id}_{int(__import__('datetime').datetime.now().timestamp())}"
+            }
+            
+            response = self.session.post(url, data=xml_content, headers=headers, params=params, timeout=self.timeout)
             print(f"[DEBUG] Response status: {response.status_code}")
             print(f"[DEBUG] Response text: {response.text[:500]}...")
             
@@ -217,7 +223,7 @@ class XNATUploader:
     
     def _create_centiloid_xml(self, results_data: Dict[str, Any], output_dir: str) -> str:
         """
-        Create XML content that conforms to centiloid.xsd schema
+        Create XML content using custom centiloid:CentiloidAssessment format
         
         Args:
             results_data: Centiloid processing results
@@ -229,7 +235,7 @@ class XNATUploader:
         from datetime import datetime
         import xml.etree.ElementTree as ET
         
-        # Create root element with proper namespace
+        # Create root element with centiloid namespace
         root = ET.Element("centiloid:CentiloidAssessment")
         root.set("xmlns:centiloid", "http://nrg.wustl.edu/centiloid")
         root.set("xmlns:xnat", "http://nrg.wustl.edu/xnat")
@@ -259,16 +265,16 @@ class XNATUploader:
             if inputs.get("reg_mode"):
                 ET.SubElement(root, "centiloid:reg_mode").text = str(inputs["reg_mode"])
         
-        # Add processing results
-        if "outputs" in results_data:
-            outputs = results_data["outputs"]
+        # Add processing outputs
+        if "intermediate" in results_data:
+            intermediate = results_data["intermediate"]
             
-            if outputs.get("converted_pet_nifti"):
-                ET.SubElement(root, "centiloid:converted_pet_nifti").text = str(outputs["converted_pet_nifti"])
-            if outputs.get("registered_pet_nifti"):
-                ET.SubElement(root, "centiloid:registered_pet_nifti").text = str(outputs["registered_pet_nifti"])
-            if outputs.get("transform"):
-                ET.SubElement(root, "centiloid:transform").text = str(outputs["transform"])
+            if intermediate.get("converted_pet_nifti"):
+                ET.SubElement(root, "centiloid:converted_pet_nifti").text = str(intermediate["converted_pet_nifti"])
+            if intermediate.get("registered_pet_nifti"):
+                ET.SubElement(root, "centiloid:registered_pet_nifti").text = str(intermediate["registered_pet_nifti"])
+            if intermediate.get("transform"):
+                ET.SubElement(root, "centiloid:transform").text = str(intermediate["transform"])
         
         # Add quantitative metrics
         if "metrics" in results_data:
@@ -286,24 +292,36 @@ class XNATUploader:
                 ET.SubElement(root, "centiloid:scaled_units").text = str(metrics["scaled_units"])
         
         # Add output files
-        if "files" in results_data:
-            files = results_data["files"]
+        output_path = Path(output_dir)
+        
+        # Find and add file paths
+        qc_overlay = output_path / "qc_overlay.png"
+        if qc_overlay.exists():
+            ET.SubElement(root, "centiloid:qc_overlay_file").text = "/output/qc_overlay.png"
             
-            if files.get("qc_overlay_file"):
-                ET.SubElement(root, "centiloid:qc_overlay_file").text = str(files["qc_overlay_file"])
-            if files.get("qc_pdf_file"):
-                ET.SubElement(root, "centiloid:qc_pdf_file").text = str(files["qc_pdf_file"])
-            if files.get("parametric_map_file"):
-                ET.SubElement(root, "centiloid:parametric_map_file").text = str(files["parametric_map_file"])
-            if files.get("results_json"):
-                ET.SubElement(root, "centiloid:results_json").text = str(files["results_json"])
-            if files.get("results_csv"):
-                ET.SubElement(root, "centiloid:results_csv").text = str(files["results_csv"])
+        qc_pdf = output_path / "qc_report.pdf" 
+        if qc_pdf.exists():
+            ET.SubElement(root, "centiloid:qc_pdf_file").text = "/output/qc_report.pdf"
+            
+        # Look for parametric map in DICOM directory
+        dicom_dir = output_path / "dicom_series"
+        if dicom_dir.exists():
+            param_maps = list(dicom_dir.glob("*parametric*.dcm"))
+            if param_maps:
+                ET.SubElement(root, "centiloid:parametric_map_file").text = f"/output/dicom_series/{param_maps[0].name}"
+                
+        results_json = output_path / "centiloid.json"
+        if results_json.exists():
+            ET.SubElement(root, "centiloid:results_json").text = "/output/centiloid.json"
+            
+        results_csv = output_path / "centiloid.csv"
+        if results_csv.exists():
+            ET.SubElement(root, "centiloid:results_csv").text = "/output/centiloid.csv"
         
         # Add processing metadata
         ET.SubElement(root, "centiloid:processing_status").text = "completed"
         ET.SubElement(root, "centiloid:processing_date").text = datetime.now().isoformat()
-        ET.SubElement(root, "centiloid:container_version").text = "1.1.7"
+        ET.SubElement(root, "centiloid:container_version").text = "1.1.9"
         
         # Convert to string with XML declaration
         xml_str = ET.tostring(root, encoding='unicode')
