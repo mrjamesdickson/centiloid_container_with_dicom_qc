@@ -310,7 +310,7 @@ class XNATUploader:
         # Add processing metadata
         ET.SubElement(root, "centiloid:processing_status").text = "completed"
         ET.SubElement(root, "centiloid:processing_date").text = datetime.now().isoformat()
-        ET.SubElement(root, "centiloid:container_version").text = "1.1.12"
+        ET.SubElement(root, "centiloid:container_version").text = "1.1.13"
         
         # Convert to string with XML declaration
         xml_str = ET.tostring(root, encoding='unicode')

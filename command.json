@@ -2,9 +2,9 @@
     "name": "centiloid-pet-quantification",
     "label": "Centiloid PET Quantification",
     "description": "Quantify amyloid burden in PET scans using Centiloid methodology. Converts DICOM to NIfTI, registers to template space, and calculates SUVR/Centiloid values with QC outputs.",
-    "version": "1.1.12",
+    "version": "1.1.13",
     "schema-version": "1.0",
-    "image": "xnatworks/xnat_centiloid_container:v1.1.12",
+    "image": "xnatworks/xnat_centiloid_container:v1.1.13",
     "type": "docker",
     "command-line": "python -m app.pipeline --dicom-dir /input --template #TEMPLATE# --target-mask #TARGET_MASK# --ref-mask #REF_MASK# --tracer #TRACER# --mode #MODE# --out-dir /output --reg-mode #REG_MODE# --xnat-host $XNAT_HOST --xnat-user $XNAT_USER --xnat-pass $XNAT_PASS --xnat-project #PROJECT# --xnat-session #SESSION_ID#",
     "override-entrypoint": true,
@@ -138,9 +138,9 @@
     ],
     "xnat": [
         {
-            "name": "centiloud-pet-scan",
-            "label": "Centiloud PET Quantification",
-            "description": "Process PET scan for amyloid quantification using Centiloud methodology",
+            "name": "centiloid-pet-scan",
+            "label": "Centiloid PET Quantification"
+            "description": "Process PET scan for amyloid quantification using Centiloid methodology"
             "contexts": ["xnat:petScanData"],
             "external-inputs": [
                 {
@@ -205,18 +205,18 @@
             ],
             "output-handlers": [
                 {
-                    "name": "centiloud-results",
+                    "name": "centiloid-results"
                     "accepts-command-output": "centiloid-json",
                     "as-a-child-of": "scan",
                     "type": "Resource",
-                    "label": "centiloud-results"
+                    "label": "centiloid-results"
                 },
                 {
-                    "name": "centiloud-csv-results",
+                    "name": "centiloid-csv-results"
                     "accepts-command-output": "centiloid-csv", 
                     "as-a-child-of": "scan",
                     "type": "Resource",
-                    "label": "centiloud-csv-results"
+                    "label": "centiloid-csv-results"
                 },
                 {
                     "name": "qc-visualization",
