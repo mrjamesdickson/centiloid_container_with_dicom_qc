@@ -131,16 +131,32 @@ def run(cmd: list, cwd: Optional[str]=None):
 
 def dcm2niix_convert(dicom_dir: str, out_dir: str) -> str:
     os.makedirs(out_dir, exist_ok=True)
-    cmd = ["dcm2niix", "-z", "y", "-f", "pet", "-o", out_dir, dicom_dir]
+    
+    # Use default naming to avoid conflicts with multiple series
+    cmd = ["dcm2niix", "-z", "y", "-o", out_dir, dicom_dir]
     run(cmd)
-    # Grab first produced NIfTI
-    nii = sorted(glob.glob(os.path.join(out_dir, "pet*.nii*")))
-    if not nii:
-        # fallback: any NIfTI
-        nii = sorted(glob.glob(os.path.join(out_dir, "*.nii*")))
-    if not nii:
+    
+    # Find the largest NIfTI file (likely the main PET image)
+    nii_files = glob.glob(os.path.join(out_dir, "*.nii.gz"))
+    if not nii_files:
+        nii_files = glob.glob(os.path.join(out_dir, "*.nii"))
+    
+    if not nii_files:
         raise FileNotFoundError("No NIfTI produced by dcm2niix")
-    return nii[0]
+    
+    # Sort by file size to get the largest (main PET series)
+    nii_files.sort(key=lambda x: os.path.getsize(x), reverse=True)
+    main_pet = nii_files[0]
+    
+    # Rename to pet.nii.gz for consistency
+    pet_output = os.path.join(out_dir, "pet.nii.gz")
+    if main_pet != pet_output:
+        os.rename(main_pet, pet_output)
+    
+    print(f"Selected main PET file: {os.path.basename(pet_output)} ({os.path.getsize(pet_output)} bytes)")
+    print(f"Found {len(nii_files)} NIfTI files total from dcm2niix conversion")
+    
+    return pet_output
 
 def sitk_load(path: str) -> sitk.Image:
     return sitk.ReadImage(path)
